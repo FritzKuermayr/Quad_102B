@@ -1,0 +1,5 @@
+dynamixel-sdk>=3.7.31
+adafruit-blinka>=8.0.0
+adafruit-circuitpython-sht4x>=1.0.0
+gpiozero>=2.0
+lgpio>=0.2.2
