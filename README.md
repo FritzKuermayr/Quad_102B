@@ -1,9 +1,22 @@
 # Quadruped Keyboard Control
 
-Dieses Repo ist auf die direkte Movement-Control des Quadrupeds reduziert. Wristband,
-EMG, Research, CAD und alte Experimente wurden entfernt.
+Dieses Repo enthaelt die aktuelle Raspberry-Pi-Steuerung fuer den Quadruped.
+Der Roboter wird direkt auf dem Raspberry Pi ueber ein SSH-Terminal gesteuert.
+Es wird kein Hotspot-Setup verwendet.
 
-## Was uebrig ist
+## Aktuelles Setup
+
+- Raspberry Pi und Laptop sind im gleichen normalen WLAN.
+- Der Code liegt auf dem Pi in `~/Quad_102B`.
+- Updates kommen per Git von GitHub:
+  `https://github.com/FritzKuermayr/Quad_102B.git`
+- Die Bewegung wird mit `h/j/k/l` gesteuert. Pfeiltasten bleiben als Fallback
+  aktiv, sind aber je nach Terminal/SSH-Client weniger zuverlaessig.
+- Standard-Dynamixel-Port ist `/dev/ttyUSB0`.
+- Standard-Baudrate ist `1000000`.
+- Motoren: Dynamixel RX-24F, Protocol `1.0`.
+
+## Projektstruktur
 
 ```text
 software/
@@ -24,234 +37,128 @@ software/
 └── setup_pi.sh
 ```
 
-## Steuerung
+## Raspberry Pi vorbereiten
 
-Die Steuerung laeuft auf dem Raspberry Pi. Dein Laptop verbindet sich per SSH mit
-dem Pi; die Pfeiltasten werden dann ueber das SSH-Terminal gelesen.
+1. Raspberry Pi OS auf die MicroSD-Karte flashen.
+2. Beim Flashen oder danach SSH aktivieren.
+3. Den Pi mit dem normalen WLAN verbinden. Kein Hotspot ist noetig.
+4. IP-Adresse des Pi finden:
 
-```text
-↑  vorwaerts gehen
-↓  rueckwaerts gehen
-←  links drehen
-→  rechts drehen
-Space  stoppen und neutral stehen
-q  sauber beenden, Torque aus
+```bash
+hostname -I
 ```
 
-## Raspberry Pi mit WLAN verbinden
-
-Wichtig: Beim Raspberry Pi 4 ist der USB-C-Port normalerweise nur fuer Strom.
-Du verbindest den Laptop also nicht einfach per USB-C-Kabel zum Steuern. Die
-Tastatursteuerung laeuft ueber SSH im WLAN. Der Laptop und der Raspberry Pi
-muessen dafuer im gleichen Netzwerk sein.
-
-### Variante A: Headless Setup mit Raspberry Pi Imager
-
-Diese Variante ist am einfachsten, wenn du keinen Monitor und keine Tastatur am
-Pi hast.
-
-1. MicroSD-Karte in den Laptop stecken.
-2. Raspberry Pi Imager oeffnen.
-3. Raspberry Pi OS auswaehlen.
-4. Die MicroSD-Karte als Storage auswaehlen.
-5. In den Imager-Einstellungen SSH aktivieren.
-6. Benutzername und Passwort setzen, zum Beispiel:
-
-```text
-username: pi
-password: raspberry
-```
-
-7. WLAN konfigurieren:
-
-```text
-SSID: <DEIN_WLAN_NAME>
-Password: <DEIN_WLAN_PASSWORT>
-Wireless LAN country: US
-```
-
-8. Image auf die MicroSD-Karte schreiben.
-9. MicroSD-Karte auswerfen und in den Raspberry Pi einsetzen.
-10. Raspberry Pi mit USB-C-Netzteil einschalten.
-11. 1-2 Minuten warten, bis der Pi gebootet und im WLAN ist.
-
-Jetzt musst du die IP-Adresse des Pi finden. Auf dem Laptop kannst du zuerst den
-Hostname probieren:
+Oder vom Laptop aus den Hostnamen probieren:
 
 ```bash
 ssh pi@raspberrypi.local
 ```
 
-Wenn das nicht funktioniert, die IP-Adresse im Router nachschauen oder auf dem
-Pi mit Monitor/Tastatur auslesen:
-
-```bash
-hostname -I
-```
-
-Dann vom Laptop verbinden:
+Falls der Hostname nicht funktioniert:
 
 ```bash
 ssh pi@<PI_IP_ADRESSE>
 ```
 
-### Variante B: Setup direkt am Raspberry Pi mit Monitor/Tastatur
+## Code auf dem Pi installieren
 
-Diese Variante benutzt Monitor, Tastatur und Maus direkt am Raspberry Pi.
-
-1. MicroSD-Karte mit Raspberry Pi OS flashen.
-2. MicroSD-Karte in den Pi einsetzen.
-3. Monitor per HDMI anschliessen.
-4. Tastatur/Maus per USB anschliessen.
-5. Raspberry Pi per USB-C-Netzteil einschalten.
-6. Im Raspberry-Pi-Desktop oben rechts das WLAN auswaehlen.
-7. WLAN-Passwort eingeben und verbinden.
-8. SSH aktivieren:
+Auf dem Pi:
 
 ```bash
-sudo systemctl enable --now ssh
-```
-
-9. IP-Adresse anzeigen:
-
-```bash
-hostname -I
-```
-
-10. Vom Laptop aus verbinden:
-
-```bash
-ssh pi@<PI_IP_ADRESSE>
-```
-
-### Verbindung pruefen
-
-Wenn du verbunden bist, siehst du im Laptop-Terminal eine Shell auf dem Pi. Zum
-Test:
-
-```bash
-hostname
-pwd
-```
-
-Wenn das funktioniert, kannst du das Projekt auf den Pi kopieren und die
-Controller starten.
-
-## Projekt auf den Raspberry Pi kopieren
-
-Wenn das Projekt noch auf deinem Laptop liegt, kopiere den kompletten Ordner auf
-den Pi:
-
-```bash
-scp -r Quadruped pi@<PI_IP_ADRESSE>:~/Quadruped
-```
-
-Danach per SSH auf den Pi:
-
-```bash
-ssh pi@<PI_IP_ADRESSE>
-```
-
-In den Projektordner wechseln:
-
-```bash
-cd ~/Quadruped
-```
-
-Falls du den Ordner schon anders auf den Pi kopiert hast, einfach in diesen
-Ordner wechseln.
-
-## Einmaliges Setup auf dem Raspberry Pi
-
-Dieses Setup installierst du einmal auf dem Pi:
-
-```bash
-cd ~/Quadruped
+cd ~
+git clone https://github.com/FritzKuermayr/Quad_102B.git
+cd ~/Quad_102B
 chmod +x software/setup_pi.sh
 ./software/setup_pi.sh
 ```
 
-Danach den Dynamixel USB-Adapter einstecken und den Port freigeben. Meist ist
-es `/dev/ttyUSB0`:
+Wenn das Repo schon auf dem Pi existiert, aktualisieren:
 
 ```bash
-sudo chmod a+rw /dev/ttyUSB0
+cd ~/Quad_102B
+git pull origin main
 ```
 
-Falls der Adapter anders heisst:
+Danach den Dynamixel USB-Adapter einstecken und pruefen:
 
 ```bash
 ls /dev/ttyUSB* /dev/ttyACM*
 ```
 
-SHT40 I2C pruefen, falls der Humidity-Sensor angeschlossen ist:
+Meist ist der Adapter `/dev/ttyUSB0`. Falls noetig, Port-Rechte setzen:
 
 ```bash
-i2cdetect -y 1
+sudo chmod a+rw /dev/ttyUSB0
 ```
 
-Wenn der Humidity-Sensor noch nicht angeschlossen ist, kannst du die Motor-Tests
-trotzdem starten.
+## Python-Abhaengigkeiten
 
-## Vier-Tasten-Steuerung starten
-
-1. Laptop und Pi muessen im gleichen WLAN sein.
-2. Vom Laptop per SSH verbinden:
+Normalerweise erledigt `software/setup_pi.sh` alles. Falls ein Python-Modul
+fehlt, im aktiven Projektordner nachinstallieren:
 
 ```bash
-ssh pi@<PI_IP_ADRESSE>
-```
-
-3. Auf dem Pi den Controller starten:
-
-```bash
-cd ~/Quadruped
+cd ~/Quad_102B
 source .venv/bin/activate
-python software/raspi_controller/main.py --port /dev/ttyUSB0
+python -m pip install -r software/requirements.txt
+```
+
+## Keyboard-Control starten
+
+Roboter fuer den ersten Test aufbocken, damit die Beine frei haengen.
+
+```bash
+cd ~/Quad_102B
+source .venv/bin/activate
+python software/raspi_controller/main.py --port /dev/ttyUSB0 --gait TROT_LOW --torque-limit 400
 ```
 
 Tasten:
+
+```text
+k      vorwaerts gehen
+j      rueckwaerts gehen
+h      links drehen
+l      rechts drehen
+Space  stoppen und neutral stehen
+s      stoppen und neutral stehen
+q      sauber beenden, Torque aus
+```
+
+Pfeiltasten funktionieren zusaetzlich, falls das Terminal sie sauber weitergibt:
 
 ```text
 ↑  vorwaerts gehen
 ↓  rueckwaerts gehen
 ←  links drehen
 →  rechts drehen
-Space  stoppen
-q  beenden
 ```
 
-Mit niedrigerem Torque-Limit starten:
+Wenn ein Input erkannt wird, steht im Terminal zum Beispiel:
+
+```text
+[keyboard] k -> forward
+```
+
+Falls die Motoren auf dem Stand zu schwach reagieren, Torque-Limit erhoehen:
 
 ```bash
-python software/raspi_controller/main.py --gait TROT_LOW --torque-limit 500
+python software/raspi_controller/main.py --port /dev/ttyUSB0 --gait TROT_LOW --torque-limit 500
 ```
 
 Alternative Gaits:
 
 ```bash
-python software/raspi_controller/main.py --gait TROT
-python software/raspi_controller/main.py --gait WALK
+python software/raspi_controller/main.py --port /dev/ttyUSB0 --gait WALK --torque-limit 500
+python software/raspi_controller/main.py --port /dev/ttyUSB0 --gait TROT --torque-limit 500
 ```
 
-## G-Button Bein-Test starten
+## Einzelbein-Test
 
-Dieses separate Testskript ist fuer einen einfachen Button-to-motor-Check:
-Wenn du `g` auf dem Laptop drueckst, bewegt der Roboter das vordere linke Bein
-kurz aus der Neutralstellung und danach wieder zurueck. Die normale
-Vier-Tasten-Steuerung wird dabei nicht benutzt.
-
-1. Laptop und Pi muessen im gleichen WLAN sein.
-2. Vom Laptop per SSH verbinden:
+Dieses separate Skript bewegt nur das vordere linke Bein kurz aus der
+Neutralstellung und danach wieder zurueck. Es ist nur fuer Motor-/Mapping-Tests.
 
 ```bash
-ssh pi@<PI_IP_ADRESSE>
-```
-
-3. Auf dem Pi den G-Test starten:
-
-```bash
-cd ~/Quadruped
+cd ~/Quad_102B
 source .venv/bin/activate
 python software/raspi_controller/g_key_leg_test.py --port /dev/ttyUSB0
 ```
@@ -263,14 +170,21 @@ g  vorderes linkes Bein kurz bewegen
 q  beenden, Torque aus
 ```
 
-Vor diesem Test den Roboter aufbocken, damit das Bein frei laufen kann.
+Mapping fuer diesen Test:
+
+```text
+FL_q1 = Motor ID 1
+Neutral = 150 deg
+Testbewegung = 165 deg fuer 0.35 s, danach zurueck auf 150 deg
+```
 
 ## Humidity / Humidifier Control
 
 Der Humidity-Controller laeuft parallel zur Keyboard-Movement-Control in einem
-separaten Python-Thread. Die Bewegungsschleife wird dadurch nicht blockiert.
+separaten Python-Thread. Wenn die benoetigten GPIO/Sensor-Abhaengigkeiten fehlen,
+meldet `main.py` das und startet die Motorsteuerung trotzdem weiter.
 
-Konfiguration steht oben in:
+Konfiguration:
 
 ```text
 software/raspi_controller/humidity_control.py
@@ -287,12 +201,7 @@ I2C_SENSOR = "SHT40 on Raspberry Pi I2C1: GPIO2/SDA1 and GPIO3/SCL1"
 SWITCH_DEBOUNCE_MS = 50
 ```
 
-Zum Aendern der Ziel-Luftfeuchtigkeit `HUMIDITY_THRESHOLD` anpassen. Zum Aendern
-der Pins `HUMIDIFIER_GPIO` und `ENABLE_SWITCH_GPIO` anpassen.
-
 ### SHT40 Sensor Wiring
-
-Adafruit SHT40 Breakout, I2C, Standard Raspberry Pi 4 I2C1:
 
 ```text
 SHT40 VIN  -> Raspberry Pi 3.3V, physical pin 1
@@ -301,14 +210,7 @@ SHT40 SDA  -> Raspberry Pi GPIO2 / SDA1, physical pin 3
 SHT40 SCL  -> Raspberry Pi GPIO3 / SCL1, physical pin 5
 ```
 
-GPIO2 und GPIO3 sind fuer den SHT40 I2C-Bus reserviert. Den Sensor in diesem
-Setup mit 3.3V versorgen.
-
 ### Humidifier MOSFET Wiring
-
-Der Humidifier wird extern mit 5V versorgt. Der Raspberry Pi versorgt den
-Humidifier nicht direkt. GPIO17 gibt nur das Steuersignal fuer ein
-GPIO-kompatibles MOSFET Power Controller Modul.
 
 Control-Seite:
 
@@ -328,13 +230,7 @@ External 5V supply ground -> MOSFET ground
 Raspberry Pi ground -> same common ground
 ```
 
-Beim Micro-USB-Kabel des Humidifiers wird nur die positive 5V-Leitung ueber den
-MOSFET geschaltet. Die Ground-Leitung bleibt direkt mit dem Ground der externen
-5V-Versorgung verbunden. Alle Grounds muessen gemeinsam verbunden sein.
-
 ### Humidifier Enable Switch
-
-Der Enable-Switch ist ein eigener digitaler Eingang mit internem Pull-up:
 
 ```text
 Switch signal     -> Raspberry Pi GPIO27, physical pin 13
@@ -348,18 +244,13 @@ Switch closed to GND = humidifier enable ON
 Switch open          = humidifier enable OFF
 ```
 
-Wenn der Enable-Switch OFF ist, bleibt der Humidifier immer OFF. Wenn der Switch
-ON ist und die gemessene Luftfeuchtigkeit unter `HUMIDITY_THRESHOLD` liegt,
-schaltet GPIO17 den MOSFET ein. Bei Sensorfehler, Shutdown oder `Ctrl+C` wird
-GPIO17 ausgeschaltet und GPIO wird aufgeraeumt.
-
 ## Wichtige Checks
 
 - Motor-IDs und Reihenfolge stehen in `software/raspi_controller/q8gait/config_rx24f.py`.
-- Standard-Port ist `/dev/ttyUSB0`, Baudrate `1000000`, Dynamixel Protocol `1.0`.
+- Beim Start bewegt `main.py` alle Motoren in die Neutralstellung.
 - Beim Beenden mit `q` oder `Ctrl+C` wird Torque deaktiviert.
 - Beim Beenden mit `q` oder `Ctrl+C` wird der Humidifier ausgeschaltet.
-- Humidity-Control Pins: SHT40 auf GPIO2/GPIO3, MOSFET auf GPIO17, Enable-Switch auf GPIO27.
-- Der Humidifier braucht eine externe 5V-Versorgung; der Pi schaltet nur den MOSFET.
-- Alle Grounds muessen gemeinsam verbunden sein.
-- Vor dem ersten Test den Roboter aufbocken, damit die Beine frei laufen koennen.
+- Vor dem ersten Lauf-Test den Roboter aufbocken.
+- Wenn `dynamixel_sdk` fehlt: `python -m pip install -r software/requirements.txt`.
+- Wenn `/dev/ttyUSB0` nicht erreichbar ist: USB-Adapter pruefen und ggf.
+  `sudo chmod a+rw /dev/ttyUSB0` ausfuehren.

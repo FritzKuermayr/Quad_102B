@@ -22,6 +22,10 @@ KEY_BINDINGS = (
     KeyBinding("\x1b[B", "backward", "arrow down"),
     KeyBinding("\x1b[D", "turn_left", "arrow left"),
     KeyBinding("\x1b[C", "turn_right", "arrow right"),
+    KeyBinding("k", "forward", "k"),
+    KeyBinding("j", "backward", "j"),
+    KeyBinding("h", "turn_left", "h"),
+    KeyBinding("l", "turn_right", "l"),
     KeyBinding(" ", "stop", "space"),
     KeyBinding("s", "stop", "s"),
     KeyBinding("q", "quit", "q"),
@@ -45,6 +49,8 @@ class KeyboardInterface:
         tty.setcbreak(self._fd)
         print(
             "\nKeyboard control:\n"
+            "  k / j  = walk forward / backward\n"
+            "  h / l  = turn left / right\n"
             "  ↑ / ↓  = walk forward / backward\n"
             "  ← / →  = turn left / right\n"
             "  Space  = stop and hold neutral stance\n"
