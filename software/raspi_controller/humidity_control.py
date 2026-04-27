@@ -19,6 +19,38 @@ class HumidityControlConfig:
     humidifier_gpio: int = HUMIDIFIER_GPIO
 
 
+class _LgpioOutputDevice:
+    """Minimal ON/OFF output wrapper backed by lgpio."""
+
+    def __init__(self, pin: int, *, active_high: bool = True, initial_value: bool = False):
+        import lgpio
+
+        self._lgpio = lgpio
+        self._pin = pin
+        self._active_high = active_high
+        self._chip = lgpio.gpiochip_open(0)
+        lgpio.gpio_claim_output(self._chip, self._pin)
+        self._write(initial_value)
+
+    def _write(self, value: bool) -> None:
+        physical_level = 1 if bool(value) == self._active_high else 0
+        self._lgpio.gpio_write(self._chip, self._pin, physical_level)
+
+    def on(self) -> None:
+        self._write(True)
+
+    def off(self) -> None:
+        self._write(False)
+
+    def close(self) -> None:
+        if self._chip is not None:
+            try:
+                self.off()
+            finally:
+                self._lgpio.gpiochip_close(self._chip)
+                self._chip = None
+
+
 class HumidityController:
     """
     Non-blocking SHT40 humidity controller for a MOSFET-switched humidifier.
@@ -97,16 +129,28 @@ class HumidityController:
     def _setup_gpio(self) -> None:
         try:
             from gpiozero import OutputDevice
+
+            self._humidifier_output = OutputDevice(
+                self.config.humidifier_gpio,
+                active_high=True,
+                initial_value=False,
+            )
+            print("[humidity] using gpiozero output backend")
+            return
+        except ImportError:
+            pass
+
+        try:
+            self._humidifier_output = _LgpioOutputDevice(
+                self.config.humidifier_gpio,
+                active_high=True,
+                initial_value=False,
+            )
+            print("[humidity] using lgpio output backend")
         except ImportError as exc:
             raise RuntimeError(
-                "gpiozero is required for humidity control. Run software/setup_pi.sh on the Raspberry Pi."
+                "No usable GPIO output backend found. Run software/setup_pi.sh on the Raspberry Pi."
             ) from exc
-
-        self._humidifier_output = OutputDevice(
-            self.config.humidifier_gpio,
-            active_high=True,
-            initial_value=False,
-        )
 
     # SERVICE FUNCTION:
     # Releases GPIO resources during shutdown.
