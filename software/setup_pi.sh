@@ -20,7 +20,13 @@ python3 -m venv "$VENV_DIR"
 
 echo "=== Optional: building Dynamixel C tools ==="
 if [ -d "$PROJECT_DIR/software/dynamixel_tools" ]; then
-  make -C "$PROJECT_DIR/software/dynamixel_tools"
+  if [ -f "$HOME/DynamixelSDK/c/include/dynamixel_sdk.h" ]; then
+    make -C "$PROJECT_DIR/software/dynamixel_tools"
+  else
+    echo "Skipping optional Dynamixel C tools build:"
+    echo "  $HOME/DynamixelSDK/c/include/dynamixel_sdk.h not found"
+    echo "  Python control and humidity/mister control are still ready to use."
+  fi
 fi
 
 echo
