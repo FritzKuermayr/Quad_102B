@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import threading
-import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -9,9 +8,8 @@ from typing import Optional
 HUMIDITY_THRESHOLD = 45.0
 SENSOR_POLL_INTERVAL_SEC = 2.0
 HUMIDIFIER_GPIO = 17
-ENABLE_SWITCH_GPIO = 27
 I2C_SENSOR = "SHT40 on Raspberry Pi I2C1: GPIO2/SDA1 and GPIO3/SCL1"
-SWITCH_DEBOUNCE_MS = 50
+EXPECTED_I2C_ADDRESS = 0x44
 
 
 @dataclass(frozen=True)
@@ -19,8 +17,6 @@ class HumidityControlConfig:
     humidity_threshold: float = HUMIDITY_THRESHOLD
     sensor_poll_interval_sec: float = SENSOR_POLL_INTERVAL_SEC
     humidifier_gpio: int = HUMIDIFIER_GPIO
-    enable_switch_gpio: int = ENABLE_SWITCH_GPIO
-    switch_debounce_ms: int = SWITCH_DEBOUNCE_MS
 
 
 class HumidityController:
@@ -28,7 +24,7 @@ class HumidityController:
     Non-blocking SHT40 humidity controller for a MOSFET-switched humidifier.
 
     The control loop runs in its own daemon thread. Any sensor read error or
-    disabled enable switch forces the humidifier GPIO low.
+    exception forces the humidifier GPIO low.
     """
 
     def __init__(self, config: Optional[HumidityControlConfig] = None) -> None:
@@ -36,7 +32,6 @@ class HumidityController:
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._humidifier_output = None
-        self._enable_switch = None
         self._sensor = None
 
     def start(self) -> None:
@@ -83,15 +78,10 @@ class HumidityController:
 
     # STATE MACHINE TRANSITION LOGIC:
     # State is represented by the physical humidifier output:
-    # - OFF when the enable switch is off
     # - OFF when the sensor read fails
-    # - ON when the switch is enabled and humidity is below threshold
+    # - ON when humidity is below threshold
     # - OFF when humidity is at or above threshold
     def _control_once(self) -> None:
-        if not self._switch_enabled():
-            self._humidifier_off()
-            return
-
         humidity = self._read_humidity()
         if humidity is None:
             self._humidifier_off()
@@ -103,10 +93,10 @@ class HumidityController:
             self._humidifier_off()
 
     # SERVICE FUNCTION:
-    # Initializes GPIO devices for the MOSFET output and enable-switch input.
+    # Initializes the GPIO device for the MOSFET output.
     def _setup_gpio(self) -> None:
         try:
-            from gpiozero import Button, DigitalOutputDevice
+            from gpiozero import DigitalOutputDevice
         except ImportError as exc:
             raise RuntimeError(
                 "gpiozero is required for humidity control. Run software/setup_pi.sh on the Raspberry Pi."
@@ -117,26 +107,14 @@ class HumidityController:
             active_high=True,
             initial_value=False,
         )
-        self._enable_switch = Button(
-            self.config.enable_switch_gpio,
-            pull_up=True,
-            bounce_time=self.config.switch_debounce_ms / 1000.0,
-        )
 
     # SERVICE FUNCTION:
     # Releases GPIO resources during shutdown.
     def _close_gpio(self) -> None:
-        for device in (self._humidifier_output, self._enable_switch):
+        for device in (self._humidifier_output,):
             if device is not None:
                 device.close()
         self._humidifier_output = None
-        self._enable_switch = None
-
-    # EVENT CHECKER:
-    # Checks whether the dedicated humidifier enable switch is ON.
-    # GPIO27 uses an internal pull-up, so a pressed/closed switch to GND means ON.
-    def _switch_enabled(self) -> bool:
-        return bool(self._enable_switch is not None and self._enable_switch.is_pressed)
 
     # SERVICE FUNCTION:
     # Turns the humidifier ON by driving GPIO17 high to enable the MOSFET module.
@@ -162,6 +140,10 @@ class HumidityController:
             _temperature_c, relative_humidity = sensor.measurements
         except Exception as exc:
             print(f"[humidity] sensor read failed; humidifier off: {exc}")
+            try:
+                sensor.i2c_device.i2c.unlock()
+            except Exception:
+                pass
             self._sensor = None
             return None
 
@@ -179,6 +161,10 @@ class HumidityController:
             import board
 
             self._sensor = adafruit_sht4x.SHT4x(board.I2C())
+            print(
+                "[humidity] sensor initialized "
+                f"bus={I2C_SENSOR} address=0x{EXPECTED_I2C_ADDRESS:02X}"
+            )
         except Exception as exc:
             print(f"[humidity] sensor init failed; humidifier off: {exc}")
             self._sensor = None

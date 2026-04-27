@@ -196,18 +196,17 @@ Standardwerte:
 HUMIDITY_THRESHOLD = 45.0
 SENSOR_POLL_INTERVAL_SEC = 2.0
 HUMIDIFIER_GPIO = 17
-ENABLE_SWITCH_GPIO = 27
 I2C_SENSOR = "SHT40 on Raspberry Pi I2C1: GPIO2/SDA1 and GPIO3/SCL1"
-SWITCH_DEBOUNCE_MS = 50
+EXPECTED_I2C_ADDRESS = 0x44
 ```
 
 ### SHT40 Sensor Wiring
 
 ```text
-SHT40 VIN  -> Raspberry Pi 3.3V, physical pin 1
-SHT40 GND  -> Raspberry Pi GND, physical pin 6
-SHT40 SDA  -> Raspberry Pi GPIO2 / SDA1, physical pin 3
-SHT40 SCL  -> Raspberry Pi GPIO3 / SCL1, physical pin 5
+SHT40 red wire    -> Raspberry Pi 3.3V, physical pin 1
+SHT40 blue wire   -> Raspberry Pi GND, physical pin 6
+SHT40 white wire  -> Raspberry Pi GPIO2 / SDA1, physical pin 3
+SHT40 orange wire -> Raspberry Pi GPIO3 / SCL1, physical pin 5
 ```
 
 ### Humidifier MOSFET Wiring
@@ -215,33 +214,93 @@ SHT40 SCL  -> Raspberry Pi GPIO3 / SCL1, physical pin 5
 Control-Seite:
 
 ```text
-MOSFET SIG/IN -> Raspberry Pi GPIO17, physical pin 11
-MOSFET GND    -> Raspberry Pi GND, physical pin 9
-MOSFET VCC    -> Raspberry Pi 3.3V, physical pin 17, falls das Modul VCC braucht
+MOSFET white wire -> Raspberry Pi GPIO17 / SIG, physical pin 11
+MOSFET blue wire  -> Raspberry Pi 3.3V / VCC, physical pin 17
+MOSFET black wire -> Raspberry Pi GND, physical pin 9
 ```
 
 Power-Pfad:
 
 ```text
-External 5V supply positive -> MOSFET power input positive
-MOSFET power output positive -> humidifier 5V input line
-External 5V supply ground -> humidifier ground
-External 5V supply ground -> MOSFET ground
-Raspberry Pi ground -> same common ground
+Buck converter / 5V supply +5V -> MOSFET VIN screw terminal
+MOSFET VOUT screw terminal     -> mister red wire (+5V)
+Buck converter / 5V supply GND -> MOSFET GND screw terminal
+Buck converter / 5V supply GND -> mister white wire (GND)
+Raspberry Pi GND               -> same common ground
 ```
 
-### Humidifier Enable Switch
+Wichtig:
 
 ```text
-Switch signal     -> Raspberry Pi GPIO27, physical pin 13
-Switch other side -> Raspberry Pi GND, physical pin 14
+Only the mister red/+5V line is switched by the MOSFET.
+The mister white/GND line goes directly to the 5V supply ground.
+All grounds must be common:
+Raspberry Pi GND, MOSFET GND, buck converter GND, and mister GND.
 ```
 
 Logik:
 
 ```text
-Switch closed to GND = humidifier enable ON
-Switch open          = humidifier enable OFF
+GPIO17 HIGH = mister ON
+GPIO17 LOW  = mister OFF
+Startup, shutdown, sensor failure, or exception = GPIO17 LOW
+```
+
+### Raspberry Pi Power Input
+
+```text
+5V supply red wire   -> Raspberry Pi physical pin 2 (+5V)
+5V supply black wire -> Raspberry Pi physical pin 14 (GND)
+```
+
+### Raspberry Pi Setup
+
+Wenn der Pi im selben WLAN oder Hotspot haengt wie dein Rechner, kannst du wie
+letztes Mal direkt ueber den Browser ins Web-Terminal gehen. Typischer Ablauf:
+
+1. Pi booten und im gleichen WLAN oder Handy-Hotspot anmelden.
+2. IP des Pi im Router/Hotspot nachsehen oder per Terminal finden, z. B. mit
+   `ping quadrupedpi.local` oder einem Netzwerkscan.
+3. Im Browser das Web-Terminal oeffnen, z. B. `http://<pi-ip>:7681`, falls du
+   wieder `ttyd` oder ein aehnliches Browser-Terminal verwendest.
+4. Im Terminal auf dem Pi das Repo klonen und einrichten:
+
+```bash
+git clone <DEIN-REPO-URL> Quadruped
+cd Quadruped
+bash software/setup_pi.sh
+```
+
+5. I2C pruefen:
+
+```bash
+i2cdetect -y 1
+```
+
+Es sollte typischerweise `0x44` fuer den SHT40 sichtbar sein.
+
+6. USB-Dynamixel-Adapter freigeben:
+
+```bash
+sudo chmod a+rw /dev/ttyUSB0
+```
+
+7. Steuerung starten:
+
+```bash
+cd /path/to/Quadruped
+.venv/bin/python software/raspi_controller/main.py --port /dev/ttyUSB0
+```
+
+### Unterschiede zur alten Version
+
+```text
+Der alte GPIO27-Enable-Switch wird nicht mehr verwendet.
+Die Feuchtigkeitsregelung schaltet jetzt direkt nur nach SHT40-Messwert.
+Fail-safe bleibt: bei jedem Fehler geht GPIO17 auf LOW.
+Die MOSFET-Kabelfarben sind jetzt fest:
+white -> SIG/GPIO17, blue -> 3.3V, black -> GND.
+Der Mister-GND wird nicht geschaltet, nur die +5V-Leitung.
 ```
 
 ## Wichtige Checks
