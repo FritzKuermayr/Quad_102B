@@ -96,13 +96,13 @@ class HumidityController:
     # Initializes the GPIO device for the MOSFET output.
     def _setup_gpio(self) -> None:
         try:
-            from gpiozero import DigitalOutputDevice
+            from gpiozero import OutputDevice
         except ImportError as exc:
             raise RuntimeError(
                 "gpiozero is required for humidity control. Run software/setup_pi.sh on the Raspberry Pi."
             ) from exc
 
-        self._humidifier_output = DigitalOutputDevice(
+        self._humidifier_output = OutputDevice(
             self.config.humidifier_gpio,
             active_high=True,
             initial_value=False,
