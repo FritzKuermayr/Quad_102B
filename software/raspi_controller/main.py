@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 
-from humidity_control import HumidityController
 from keyboard_interface import KeyboardInterface
 from q8gait.config_rx24f import default_config
 from q8gait.kinematics_solver import k_solver
@@ -20,15 +19,9 @@ def main() -> None:
     robot = Robot(cfg)
     leg = k_solver(CENTER_DIST_MM, UPPER_LINK_MM, LOWER_LINK_MM, UPPER_LINK_MM, LOWER_LINK_MM)
     keyboard = KeyboardInterface()
-    humidity_controller = HumidityController()
     robot_torque_enabled = False
 
     try:
-        try:
-            humidity_controller.start()
-        except Exception as exc:
-            print(f"[main] humidity control unavailable; continuing robot control: {exc}")
-
         robot.open()
         robot.torque(True)
         robot_torque_enabled = True
@@ -46,7 +39,6 @@ def main() -> None:
     except KeyboardInterrupt:
         print("\n[main] stopping")
     finally:
-        humidity_controller.stop()
         keyboard.close()
         try:
             if robot_torque_enabled:

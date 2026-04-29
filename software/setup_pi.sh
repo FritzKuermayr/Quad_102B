@@ -6,12 +6,7 @@ VENV_DIR="$PROJECT_DIR/.venv"
 
 echo "=== Installing Raspberry Pi system packages ==="
 sudo apt update
-sudo apt install -y git build-essential python3-venv python3-pip i2c-tools
-
-echo "=== Enabling Raspberry Pi I2C bus for SHT40 ==="
-if command -v raspi-config >/dev/null 2>&1; then
-  sudo raspi-config nonint do_i2c 0
-fi
+sudo apt install -y git build-essential python3-venv python3-pip
 
 echo "=== Installing DynamixelSDK for Python ==="
 python3 -m venv "$VENV_DIR"
@@ -25,7 +20,7 @@ if [ -d "$PROJECT_DIR/software/dynamixel_tools" ]; then
   else
     echo "Skipping optional Dynamixel C tools build:"
     echo "  $HOME/DynamixelSDK/c/include/dynamixel_sdk.h not found"
-    echo "  Python control and humidity/mister control are still ready to use."
+    echo "  Python quadruped control is still ready to use."
   fi
 fi
 
@@ -33,13 +28,3 @@ echo
 echo "Setup complete."
 echo "Before running the robot, plug in the Dynamixel USB adapter and allow access:"
 echo "  sudo chmod a+rw /dev/ttyUSB0"
-echo "You can check the SHT40 I2C connection with:"
-echo "  i2cdetect -y 1"
-echo "Expected SHT40 address:"
-echo "  0x44"
-echo "Humidity / mister GPIO wiring used by the code:"
-echo "  SHT40 SDA -> GPIO2 / pin 3"
-echo "  SHT40 SCL -> GPIO3 / pin 5"
-echo "  MOSFET SIG -> GPIO17 / pin 11"
-echo "  MOSFET VCC -> 3.3V / pin 17"
-echo "  MOSFET GND -> GND / pin 9"
